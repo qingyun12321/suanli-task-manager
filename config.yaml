@@ -11,7 +11,12 @@ projects:
     task_id: 1554725
     service_port: 10085
     token: "f2ee1c4c-b678-4b3e-850b-e56a6f57bfd3-20260208093806"
-    ready_timeout_sec: 120
+    ready_timeout_sec: 300
+  hunyuanworld-mirror-cu128:
+    task_id: 1558859
+    service_port: 10085
+    token: "f2ee1c4c-b678-4b3e-850b-e56a6f57bfd3-20260208093806"
+    ready_timeout_sec: 300
   lightx2v:
     task_id: 1319239
     service_port: 10085
