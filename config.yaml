@@ -27,3 +27,8 @@ projects:
     service_port: 8000
     token: "f2ee1c4c-b678-4b3e-850b-e56a6f57bfd3-20260208093806"
     ready_timeout_sec: 300
+  ultrashape:
+    task_id: 1650806
+    service_port: 10083
+    token: "f2ee1c4c-b678-4b3e-850b-e56a6f57bfd3-20260208093806"
+    ready_timeout_sec: 300
