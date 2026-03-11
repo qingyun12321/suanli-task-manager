@@ -6,6 +6,13 @@ openapi:
   base: "https://openapi.suanli.cn"
   version: "1.0.0"
 
+auth:
+  enabled: true
+  api_keys:
+    - "ZZqBXKauULKqic47r3nuCiGVnGOh7nwrydBUYwWCj-U"
+    - "PQiMfgxplW2FcSwVlqJnc_vqz_K54qT2sXx_XLbAZo8"
+    - "WJaoJtOFREl0hXtzou1AOe7r_JljIi_7sUEsqzKLigE"
+
 projects:
   hunyuanworld-mirror:
     task_id: 1554725

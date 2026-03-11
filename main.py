@@ -22,7 +22,7 @@ from typing import Any
 
 import httpx
 import yaml
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import FastAPI, File, Form, Header, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import uvicorn
@@ -58,6 +58,13 @@ cfg = load_config()
 OPENAPI_BASE: str = cfg.get("openapi", {}).get("base", "https://openapi.suanli.cn").rstrip("/")
 OPENAPI_VERSION: str = cfg.get("openapi", {}).get("version", "1.0.0")
 PROJECTS: dict[str, dict] = cfg.get("projects", {})
+AUTH_CFG: dict[str, Any] = cfg.get("auth", {})
+AUTH_ENABLED: bool = bool(AUTH_CFG.get("enabled", False))
+API_KEYS: set[str] = {
+    str(item).strip()
+    for item in AUTH_CFG.get("api_keys", [])
+    if str(item).strip()
+}
 
 
 # ---------------------------------------------------------------------------
@@ -275,6 +282,22 @@ async def _save_uploads(files: list[UploadFile]) -> list[TaskFile]:
             )
         )
     return saved
+
+
+# ---------------------------------------------------------------------------
+# Authentication
+# ---------------------------------------------------------------------------
+def _require_api_key(authorization: str | None) -> None:
+    if not AUTH_ENABLED:
+        return
+    if not authorization:
+        raise HTTPException(status_code=401, detail="Missing Authorization header")
+    prefix = "Bearer "
+    if not authorization.startswith(prefix):
+        raise HTTPException(status_code=401, detail="Authorization must use Bearer token")
+    token = authorization[len(prefix):].strip()
+    if token not in API_KEYS:
+        raise HTTPException(status_code=401, detail="Invalid API key")
 
 
 # ---------------------------------------------------------------------------
@@ -691,7 +714,8 @@ async def _scheduler_loop(project_name: str) -> None:
 # Public API endpoints
 # ---------------------------------------------------------------------------
 @app.get("/api/projects")
-async def list_projects():
+async def list_projects(authorization: str | None = Header(default=None)):
+    _require_api_key(authorization)
     return {"projects": list(PROJECTS.keys())}
 
 
@@ -699,7 +723,9 @@ async def list_projects():
 async def create_reconstruction_task(
     request: str = Form(...),
     files: list[UploadFile] = File(...),
+    authorization: str | None = Header(default=None),
 ):
+    _require_api_key(authorization)
     try:
         payload = json.loads(request)
     except json.JSONDecodeError as exc:
@@ -763,7 +789,8 @@ async def create_reconstruction_task(
 
 
 @app.get("/api/v1/tasks/{task_id}")
-async def get_task(task_id: str):
+async def get_task(task_id: str, authorization: str | None = Header(default=None)):
+    _require_api_key(authorization)
     project_name = TASK_INDEX.get(task_id)
     if not project_name:
         raise HTTPException(status_code=404, detail=f"Unknown task_id: {task_id}")
@@ -784,7 +811,8 @@ async def get_task(task_id: str):
 # Legacy compatibility endpoints
 # ---------------------------------------------------------------------------
 @app.post("/api/task/recover")
-async def recover_task(req: ProjectRequest):
+async def recover_task(req: ProjectRequest, authorization: str | None = Header(default=None)):
+    _require_api_key(authorization)
     proj = _get_project(req.project)
     state = _get_state(req.project)
     service_url = await _ensure_project_recovered(state, proj)
@@ -795,7 +823,8 @@ async def recover_task(req: ProjectRequest):
 
 
 @app.post("/api/task/pause")
-async def pause_task(req: ProjectRequest):
+async def pause_task(req: ProjectRequest, authorization: str | None = Header(default=None)):
+    _require_api_key(authorization)
     proj = _get_project(req.project)
     state = _get_state(req.project)
     async with state.lock:
@@ -806,7 +835,8 @@ async def pause_task(req: ProjectRequest):
 
 
 @app.get("/api/task/status")
-async def task_status(project: str):
+async def task_status(project: str, authorization: str | None = Header(default=None)):
+    _require_api_key(authorization)
     proj = _get_project(project)
     state = _get_state(project)
     service_port = int(proj.get("service_port", 10085))
