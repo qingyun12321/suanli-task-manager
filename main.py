@@ -65,6 +65,7 @@ API_KEYS: set[str] = {
     for item in AUTH_CFG.get("api_keys", [])
     if str(item).strip()
 }
+MODEL_ALIASES: dict[str, str] = {}
 
 
 # ---------------------------------------------------------------------------
@@ -147,6 +148,25 @@ def _get_project(name: str) -> dict:
     if proj is None:
         raise HTTPException(status_code=404, detail=f"Unknown project: {name}")
     return proj
+
+
+def _refresh_model_aliases() -> None:
+    MODEL_ALIASES.clear()
+    for project_name, proj in PROJECTS.items():
+        MODEL_ALIASES[project_name] = project_name
+        public_model = str(proj.get("public_model") or "").strip()
+        if public_model:
+            MODEL_ALIASES[public_model] = project_name
+
+
+def _resolve_project_name(name_or_model: str) -> str:
+    project_name = MODEL_ALIASES.get(name_or_model)
+    if project_name:
+        return project_name
+    raise HTTPException(status_code=404, detail=f"Unknown project/model: {name_or_model}")
+
+
+_refresh_model_aliases()
 
 
 def _get_state(name: str) -> ProjectRuntimeState:
@@ -716,7 +736,12 @@ async def _scheduler_loop(project_name: str) -> None:
 @app.get("/api/projects")
 async def list_projects(authorization: str | None = Header(default=None)):
     _require_api_key(authorization)
-    return {"projects": list(PROJECTS.keys())}
+    return {
+        "projects": [
+            str(proj.get("public_model") or project_name)
+            for project_name, proj in PROJECTS.items()
+        ]
+    }
 
 
 @app.post("/api/v1/services/aigc/3d-generation/reconstruction")
@@ -738,8 +763,9 @@ async def create_reconstruction_task(
     if not model:
         raise HTTPException(status_code=400, detail="model is required")
 
-    proj = _get_project(model)
-    state = _get_state(model)
+    project_name = _resolve_project_name(model)
+    proj = _get_project(project_name)
+    state = _get_state(project_name)
 
     input_payload = payload.get("input")
     if input_payload is None:
@@ -763,7 +789,7 @@ async def create_reconstruction_task(
     task = TaskRecord(
         task_id=task_id,
         request_id=request_id,
-        project=model,
+        project=project_name,
         model=model,
         input_payload=input_payload,
         parameter_payload=parameter_payload,
@@ -774,7 +800,7 @@ async def create_reconstruction_task(
     async with state.lock:
         state.tasks[task_id] = task
         state.pending_queue.append(task_id)
-        TASK_INDEX[task_id] = model
+        TASK_INDEX[task_id] = project_name
 
     _ensure_scheduler(state)
 
@@ -813,8 +839,9 @@ async def get_task(task_id: str, authorization: str | None = Header(default=None
 @app.post("/api/task/recover")
 async def recover_task(req: ProjectRequest, authorization: str | None = Header(default=None)):
     _require_api_key(authorization)
-    proj = _get_project(req.project)
-    state = _get_state(req.project)
+    project_name = _resolve_project_name(req.project)
+    proj = _get_project(project_name)
+    state = _get_state(project_name)
     service_url = await _ensure_project_recovered(state, proj)
     async with state.lock:
         state.desired_points = max(state.desired_points, 1)
@@ -825,8 +852,9 @@ async def recover_task(req: ProjectRequest, authorization: str | None = Header(d
 @app.post("/api/task/pause")
 async def pause_task(req: ProjectRequest, authorization: str | None = Header(default=None)):
     _require_api_key(authorization)
-    proj = _get_project(req.project)
-    state = _get_state(req.project)
+    project_name = _resolve_project_name(req.project)
+    proj = _get_project(project_name)
+    state = _get_state(project_name)
     async with state.lock:
         if state.occupied_slots > 0 or state.pending_queue:
             raise HTTPException(status_code=409, detail="Tasks are still running or queued")
@@ -837,8 +865,9 @@ async def pause_task(req: ProjectRequest, authorization: str | None = Header(def
 @app.get("/api/task/status")
 async def task_status(project: str, authorization: str | None = Header(default=None)):
     _require_api_key(authorization)
-    proj = _get_project(project)
-    state = _get_state(project)
+    project_name = _resolve_project_name(project)
+    proj = _get_project(project_name)
+    state = _get_state(project_name)
     service_port = int(proj.get("service_port", 10085))
     async with httpx.AsyncClient(timeout=30) as client:
         detail = await _call_task_detail(client, proj)
@@ -874,6 +903,14 @@ if __name__ == "__main__":
         OPENAPI_BASE = cfg.get("openapi", {}).get("base", OPENAPI_BASE).rstrip("/")
         OPENAPI_VERSION = cfg.get("openapi", {}).get("version", OPENAPI_VERSION)
         PROJECTS = cfg.get("projects", {})
+        AUTH_CFG = cfg.get("auth", {})
+        AUTH_ENABLED = bool(AUTH_CFG.get("enabled", False))
+        API_KEYS = {
+            str(item).strip()
+            for item in AUTH_CFG.get("api_keys", [])
+            if str(item).strip()
+        }
+        _refresh_model_aliases()
         PROJECT_STATES.clear()
         PROJECT_STATES.update({name: ProjectRuntimeState(project=name) for name in PROJECTS})
         TASK_INDEX.clear()

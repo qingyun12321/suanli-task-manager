@@ -15,6 +15,7 @@ auth:
 
 projects:
   hunyuanworld-mirror:
+    public_model: "kokoni-3d-world"
     task_id: 1554725
     service_port: 10085
     token: "f2ee1c4c-b678-4b3e-850b-e56a6f57bfd3-20260208093806"
@@ -24,6 +25,7 @@ projects:
     dispatch_retry_interval_ms: 2000
     dispatch_retry_backoff_max_ms: 5000
   hunyuanworld-mirror-cu128:
+    public_model: "kokoni-3d-world-cu128"
     task_id: 1558859
     service_port: 10085
     token: "f2ee1c4c-b678-4b3e-850b-e56a6f57bfd3-20260208093806"
