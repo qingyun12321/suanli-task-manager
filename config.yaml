@@ -12,23 +12,43 @@ projects:
     service_port: 10085
     token: "f2ee1c4c-b678-4b3e-850b-e56a6f57bfd3-20260208093806"
     ready_timeout_sec: 300
+    max_points: 2
+    scale_out_timeout_sec: 300
+    dispatch_retry_interval_ms: 2000
+    dispatch_retry_backoff_max_ms: 5000
   hunyuanworld-mirror-cu128:
     task_id: 1558859
     service_port: 10085
     token: "f2ee1c4c-b678-4b3e-850b-e56a6f57bfd3-20260208093806"
     ready_timeout_sec: 300
+    max_points: 2
+    scale_out_timeout_sec: 300
+    dispatch_retry_interval_ms: 2000
+    dispatch_retry_backoff_max_ms: 5000
   lightx2v:
     task_id: 1319239
     service_port: 10085
     token: "f2ee1c4c-b678-4b3e-850b-e56a6f57bfd3-20260208093806"
     ready_timeout_sec: 300
+    max_points: 1
+    scale_out_timeout_sec: 300
+    dispatch_retry_interval_ms: 2000
+    dispatch_retry_backoff_max_ms: 5000
   fastgs:
     task_id: 1573688
     service_port: 8000
     token: "f2ee1c4c-b678-4b3e-850b-e56a6f57bfd3-20260208093806"
     ready_timeout_sec: 300
+    max_points: 1
+    scale_out_timeout_sec: 300
+    dispatch_retry_interval_ms: 2000
+    dispatch_retry_backoff_max_ms: 5000
   ultrashape:
     task_id: 1650806
     service_port: 10083
     token: "f2ee1c4c-b678-4b3e-850b-e56a6f57bfd3-20260208093806"
     ready_timeout_sec: 300
+    max_points: 1
+    scale_out_timeout_sec: 300
+    dispatch_retry_interval_ms: 2000
+    dispatch_retry_backoff_max_ms: 5000
