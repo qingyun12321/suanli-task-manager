@@ -18,7 +18,7 @@ from typing import Any
 
 import httpx
 import yaml
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import uvicorn
@@ -77,6 +77,27 @@ def _get_project(name: str) -> dict:
     if proj is None:
         raise HTTPException(status_code=404, detail=f"Unknown project: {name}")
     return proj
+
+
+def _require_project_auth(proj: dict, authorization: str | None) -> None:
+    auth_cfg = proj.get("auth")
+    if not isinstance(auth_cfg, dict):
+        return
+
+    auth_type = str(auth_cfg.get("type") or "").strip().lower()
+    if auth_type != "bearer":
+        return
+
+    expected_token = str(auth_cfg.get("token") or "").strip()
+    if not expected_token:
+        raise HTTPException(status_code=500, detail="Project auth token is not configured")
+
+    if not authorization:
+        raise HTTPException(status_code=401, detail="Missing Authorization header")
+
+    scheme, _, token = authorization.partition(" ")
+    if scheme.lower() != "bearer" or token.strip() != expected_token:
+        raise HTTPException(status_code=401, detail="Invalid bearer token")
 
 
 def _build_headers(token: str, *, content_type: bool = True) -> dict[str, str]:
@@ -244,8 +265,9 @@ async def list_projects():
 
 
 @app.post("/api/task/recover")
-async def recover_task(req: ProjectRequest):
+async def recover_task(req: ProjectRequest, authorization: str | None = Header(default=None)):
     proj = _get_project(req.project)
+    _require_project_auth(proj, authorization)
     timeout_sec = int(proj.get("ready_timeout_sec", 120))
     service_port = int(proj.get("service_port", 10085))
 
@@ -274,16 +296,18 @@ async def recover_task(req: ProjectRequest):
 
 
 @app.post("/api/task/pause")
-async def pause_task(req: ProjectRequest):
+async def pause_task(req: ProjectRequest, authorization: str | None = Header(default=None)):
     proj = _get_project(req.project)
+    _require_project_auth(proj, authorization)
     async with httpx.AsyncClient(timeout=30) as client:
         await _call_task_control(client, proj, "pause")
     return {"status": "paused"}
 
 
 @app.get("/api/task/status")
-async def task_status(project: str):
+async def task_status(project: str, authorization: str | None = Header(default=None)):
     proj = _get_project(project)
+    _require_project_auth(proj, authorization)
     service_port = int(proj.get("service_port", 10085))
     async with httpx.AsyncClient(timeout=30) as client:
         detail = await _call_task_detail(client, proj)

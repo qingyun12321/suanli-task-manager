@@ -32,3 +32,11 @@ projects:
     service_port: 10083
     token: "f2ee1c4c-b678-4b3e-850b-e56a6f57bfd3-20260208093806"
     ready_timeout_sec: 300
+  kokoni-shape:
+    task_id: 1650806
+    service_port: 10083
+    token: "f2ee1c4c-b678-4b3e-850b-e56a6f57bfd3-20260208093806"
+    ready_timeout_sec: 300
+    auth:
+      type: bearer
+      token: "UHSI4U80pLYX3Pvb8a4mFdP9wsY2X_4cCJVA_P39T4Y"
