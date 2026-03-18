@@ -6,6 +6,9 @@ openapi:
   base: "https://openapi.suanli.cn"
   version: "1.0.0"
 
+project_aliases:
+  kokoni-world: hunyuanworld-mirror
+
 projects:
   hunyuanworld-mirror:
     task_id: 1554725

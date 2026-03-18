@@ -47,10 +47,34 @@ def load_config(path: Path = CONFIG_PATH) -> dict:
         return yaml.safe_load(f)
 
 
+def _build_project_aliases(projects: dict[str, dict], aliases_cfg: dict[str, Any] | None) -> dict[str, str]:
+    alias_map: dict[str, str] = {}
+    if not isinstance(aliases_cfg, dict):
+        return alias_map
+
+    for alias, target in aliases_cfg.items():
+        alias_name = str(alias or "").strip()
+        target_name = str(target or "").strip()
+        if not alias_name or not target_name:
+            continue
+        if target_name not in projects:
+            raise ValueError(f"Alias target does not exist: {alias_name} -> {target_name}")
+        alias_map[alias_name] = target_name
+    return alias_map
+
+
+def _resolve_project_name(name: str, projects: dict[str, dict], aliases: dict[str, str]) -> str:
+    normalized = str(name or "").strip()
+    if normalized in projects:
+        return normalized
+    return aliases.get(normalized, normalized)
+
+
 cfg = load_config()
 OPENAPI_BASE: str = cfg.get("openapi", {}).get("base", "https://openapi.suanli.cn").rstrip("/")
 OPENAPI_VERSION: str = cfg.get("openapi", {}).get("version", "1.0.0")
 PROJECTS: dict[str, dict] = cfg.get("projects", {})
+PROJECT_ALIASES: dict[str, str] = _build_project_aliases(PROJECTS, cfg.get("project_aliases"))
 
 # ---------------------------------------------------------------------------
 # FastAPI app
@@ -73,7 +97,8 @@ class ProjectRequest(BaseModel):
 # OpenAPI helpers
 # ---------------------------------------------------------------------------
 def _get_project(name: str) -> dict:
-    proj = PROJECTS.get(name)
+    resolved_name = _resolve_project_name(name, PROJECTS, PROJECT_ALIASES)
+    proj = PROJECTS.get(resolved_name)
     if proj is None:
         raise HTTPException(status_code=404, detail=f"Unknown project: {name}")
     return proj
@@ -261,7 +286,7 @@ async def _poll_until_running(client: httpx.AsyncClient, proj: dict, timeout_sec
 # ---------------------------------------------------------------------------
 @app.get("/api/projects")
 async def list_projects():
-    return {"projects": list(PROJECTS.keys())}
+    return {"projects": sorted({*PROJECTS.keys(), *PROJECT_ALIASES.keys()})}
 
 
 @app.post("/api/task/recover")
@@ -338,4 +363,5 @@ if __name__ == "__main__":
         OPENAPI_BASE = cfg.get("openapi", {}).get("base", OPENAPI_BASE).rstrip("/")
         OPENAPI_VERSION = cfg.get("openapi", {}).get("version", OPENAPI_VERSION)
         PROJECTS = cfg.get("projects", {})
+        PROJECT_ALIASES = _build_project_aliases(PROJECTS, cfg.get("project_aliases"))
     uvicorn.run(app, host=args.host, port=args.port, log_level="info")
