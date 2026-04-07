@@ -10,4 +10,6 @@ dependencies = [
     "python-multipart>=0.0.9",
     "pyyaml>=6.0",
     "uvicorn>=0.30.0",
+    "pytest>=8.4.0",
+    "pytest-asyncio>=0.23.8",
 ]
